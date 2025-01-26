@@ -1,11 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { QRCodeCanvas } from "qrcode.react";
+import { useState, useEffect, useRef } from "react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { QrCode, Loader2, Download } from "lucide-react";
+import { QrCode, Loader2, Download, FileImage, FileCode, Palette, Github } from "lucide-react";
+import { HexColorPicker } from "react-colorful";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+type QRFormat = "svg" | "png";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -13,6 +28,9 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [qrSize, setQrSize] = useState(256);
   const [refCount, setRefCount] = useState(1);
+  const [format, setFormat] = useState<QRFormat>("png");
+  const [qrColor, setQrColor] = useState<string | null>(null);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateQRSize = () => {
@@ -34,11 +52,17 @@ export default function Home() {
   const generateUniqueUrl = (baseUrl: string) => {
     try {
       const urlObj = new URL(baseUrl);
-      urlObj.searchParams.set("qr_ref", `qr_${refCount}`);
+      const timestamp = Date.now();
+      const domain = "speedy-qr-code.vercel.app";
+      const uniqueRef = `${domain}_${timestamp}_${refCount}`;
+      urlObj.searchParams.set("qr_ref", uniqueRef);
       setRefCount(prev => prev + 1);
       return urlObj.toString();
     } catch {
-      return `${baseUrl}?qr_ref=qr_${refCount}`;
+      const timestamp = Date.now();
+      const domain = "speedy-qr-code.vercel.app";
+      const uniqueRef = `${domain}_${timestamp}_${refCount}`;
+      return `${baseUrl}?qr_ref=${uniqueRef}`;
     }
   };
 
@@ -54,32 +78,49 @@ export default function Home() {
   };
 
   const downloadQRCode = () => {
-    const canvas = document.querySelector("canvas");
-    if (canvas) {
-      const pngUrl = canvas
-        .toDataURL("image/png")
-        .replace("image/png", "image/octet-stream");
-      const downloadLink = document.createElement("a");
-      downloadLink.href = pngUrl;
-      const refId = new URL(qrCode).searchParams.get("qr_ref") || "qr";
-      downloadLink.download = `${refId}.png`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
+    const refId = new URL(qrCode).searchParams.get("qr_ref") || "qr";
+    
+    if (format === "svg") {
+      const svg = qrCodeRef.current?.querySelector("svg");
+      if (svg) {
+        const svgData = new XMLSerializer().serializeToString(svg);
+        const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        
+        const downloadLink = document.createElement("a");
+        downloadLink.href = svgUrl;
+        downloadLink.download = `${refId}.svg`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        URL.revokeObjectURL(svgUrl);
+      }
+    } else {
+      const canvas = qrCodeRef.current?.querySelector("canvas");
+      if (canvas) {
+        const pngUrl = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement("a");
+        downloadLink.href = pngUrl;
+        downloadLink.download = `${refId}.png`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      }
     }
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-zinc-950">
       <Card className="w-full max-w-md border-zinc-800 bg-zinc-900">
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-xl sm:text-2xl text-center text-zinc-100">QR Kod Oluşturucu</CardTitle>
-          <CardDescription className="text-center text-zinc-400 text-sm mt-2">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="text-lg sm:text-2xl text-center text-zinc-100">QR Kod Oluşturucu</CardTitle>
+          <CardDescription className="text-center text-zinc-400 text-xs sm:text-sm mt-1.5 sm:mt-2">
             Herhangi bir URL&apos;i QR koda dönüştürün. Her oluşturduğunuz QR kod benzersiz bir referans ID&apos;si içerir, 
-            böylece tarama istatistiklerini takip edebilirsiniz. Oluşturulan QR kodları PNG formatında indirebilirsiniz.
+            böylece tarama istatistiklerini takip edebilirsiniz. SVG veya PNG formatında indirebilirsiniz.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 p-4 sm:p-6">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
           <div className="flex flex-col sm:flex-row gap-2">
             <Input
               type="text"
@@ -88,29 +129,105 @@ export default function Home() {
               onChange={(e) => setUrl(e.target.value)}
               className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-400"
             />
-            <Button 
-              onClick={generateQRCode}
-              className="bg-zinc-700 hover:bg-zinc-600 text-zinc-100 whitespace-nowrap"
-              disabled={isGenerating || !url}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  <span className="text-sm">Oluşturuluyor</span>
-                </>
-              ) : (
-                <>
-                  <QrCode className="mr-2 h-4 w-4" />
-                  <span className="text-sm">Oluştur</span>
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Select
+                value={format}
+                onValueChange={(value: QRFormat) => setFormat(value)}
+              >
+                <SelectTrigger className="w-[90px] h-9 bg-zinc-800 border-zinc-700 text-zinc-100 focus-visible:ring-offset-zinc-950">
+                  <SelectValue>
+                    <div className="flex items-center">
+                      {format === "svg" ? (
+                        <FileCode className="w-4 h-4 mr-2" />
+                      ) : (
+                        <FileImage className="w-4 h-4 mr-2" />
+                      )}
+                      {format.toUpperCase()}
+                    </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700 text-zinc-100">
+                  <SelectItem value="png" className="text-zinc-100 focus:bg-zinc-700">
+                    <div className="flex items-center">
+                      <FileImage className="w-4 h-4 mr-2" />
+                      PNG
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="svg" className="text-zinc-100 focus:bg-zinc-700">
+                    <div className="flex items-center">
+                      <FileCode className="w-4 h-4 mr-2" />
+                      SVG
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-9 h-9 p-0 bg-zinc-800 border-zinc-700 hover:bg-zinc-700"
+                    style={{
+                      backgroundColor: qrColor || undefined
+                    }}
+                  >
+                    <Palette className="h-4 w-4 text-zinc-100" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto border-zinc-800 bg-zinc-900 p-3">
+                  <HexColorPicker color={qrColor || "#000000"} onChange={setQrColor} />
+                  {qrColor && (
+                    <Button
+                      variant="ghost"
+                      className="w-full mt-2 text-xs text-zinc-400 hover:text-zinc-100"
+                      onClick={() => setQrColor(null)}
+                    >
+                      Varsayılan Renge Dön
+                    </Button>
+                  )}
+                </PopoverContent>
+              </Popover>
+
+              <Button 
+                onClick={generateQRCode}
+                className="bg-zinc-700 hover:bg-zinc-600 text-zinc-100 whitespace-nowrap"
+                disabled={isGenerating || !url}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="text-sm">Oluşturuluyor</span>
+                  </>
+                ) : (
+                  <>
+                    <QrCode className="mr-2 h-4 w-4" />
+                    <span className="text-sm">Oluştur</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {qrCode && (
-            <div className="flex flex-col items-center gap-4 p-3 sm:p-4 border border-zinc-800 rounded-lg bg-zinc-900">
-              <div className="p-3 sm:p-4 bg-white rounded-lg">
-                <QRCodeCanvas value={qrCode} size={qrSize} />
+            <div className="flex flex-col items-center gap-3 sm:gap-4 p-2 sm:p-4 border border-zinc-800 rounded-lg bg-zinc-900">
+              <div ref={qrCodeRef} className="p-2 sm:p-4 bg-white rounded-lg">
+                {format === "svg" ? (
+                  <QRCodeSVG 
+                    value={qrCode} 
+                    size={qrSize}
+                    level="H"
+                    includeMargin={true}
+                    fgColor={qrColor || "#000000"}
+                  />
+                ) : (
+                  <QRCodeCanvas 
+                    value={qrCode} 
+                    size={qrSize}
+                    level="H"
+                    includeMargin={true}
+                    fgColor={qrColor || "#000000"}
+                  />
+                )}
               </div>
               <Button 
                 onClick={downloadQRCode} 
@@ -118,12 +235,22 @@ export default function Home() {
                 className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 w-full sm:w-auto"
               >
                 <Download className="mr-2 h-4 w-4" />
-                <span className="text-sm">QR Kodu İndir</span>
+                <span className="text-sm">QR Kodu İndir ({format.toUpperCase()})</span>
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
+      
+      <a
+        href="https://github.com/umutcandev/qr-code-generator"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-4 flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-md shadow-lg transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:ring-offset-2 focus:ring-offset-zinc-950"
+      >
+        <Github className="w-4 h-4" />
+        <span className="text-sm font-medium">qr-code-generator</span>
+      </a>
     </main>
   );
 }
