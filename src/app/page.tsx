@@ -14,34 +14,30 @@ export default function Home() {
   const [qrSize, setQrSize] = useState(256);
   const [refCount, setRefCount] = useState(1);
 
-  // QR kod boyutunu ekran genişliğine göre ayarla
   useEffect(() => {
     const updateQRSize = () => {
       const width = window.innerWidth;
       if (width < 380) {
-        setQrSize(200); // Çok küçük ekranlar
+        setQrSize(200);
       } else if (width < 768) {
-        setQrSize(220); // Mobil ekranlar
+        setQrSize(220);
       } else {
-        setQrSize(256); // Tablet ve üstü
+        setQrSize(256);
       }
     };
 
     updateQRSize();
-    window.addEventListener('resize', updateQRSize);
-    return () => window.removeEventListener('resize', updateQRSize);
+    window.addEventListener("resize", updateQRSize);
+    return () => window.removeEventListener("resize", updateQRSize);
   }, []);
 
   const generateUniqueUrl = (baseUrl: string) => {
     try {
       const urlObj = new URL(baseUrl);
-      // Referans ID'si olarak qr_ref parametresini kullan
-      urlObj.searchParams.set('qr_ref', `qr_${refCount}`);
-      // Bir sonraki referans ID'si için sayacı artır
+      urlObj.searchParams.set("qr_ref", `qr_${refCount}`);
       setRefCount(prev => prev + 1);
       return urlObj.toString();
-    } catch (error) {
-      // Geçerli bir URL değilse, yine de referans ID'sini ekle
+    } catch {
       return `${baseUrl}?qr_ref=qr_${refCount}`;
     }
   };
@@ -65,8 +61,7 @@ export default function Home() {
         .replace("image/png", "image/octet-stream");
       const downloadLink = document.createElement("a");
       downloadLink.href = pngUrl;
-      // Dosya adına referans ID'sini ekle
-      const refId = new URL(qrCode).searchParams.get('qr_ref') || 'qr';
+      const refId = new URL(qrCode).searchParams.get("qr_ref") || "qr";
       downloadLink.download = `${refId}.png`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
@@ -80,7 +75,7 @@ export default function Home() {
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-xl sm:text-2xl text-center text-zinc-100">QR Kod Oluşturucu</CardTitle>
           <CardDescription className="text-center text-zinc-400 text-sm mt-2">
-            Herhangi bir URL'i QR koda dönüştürün. Her oluşturduğunuz QR kod benzersiz bir referans ID'si içerir, 
+            Herhangi bir URL&apos;i QR koda dönüştürün. Her oluşturduğunuz QR kod benzersiz bir referans ID&apos;si içerir, 
             böylece tarama istatistiklerini takip edebilirsiniz. Oluşturulan QR kodları PNG formatında indirebilirsiniz.
           </CardDescription>
         </CardHeader>
