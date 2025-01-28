@@ -176,15 +176,31 @@ export default function Home() {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto border-zinc-800 bg-zinc-900 p-3">
                   <HexColorPicker color={qrColor || "#000000"} onChange={setQrColor} />
-                  {qrColor && (
-                    <Button
-                      variant="ghost"
-                      className="w-full mt-2 text-xs text-zinc-400 hover:text-zinc-100"
-                      onClick={() => setQrColor(null)}
-                    >
-                      Varsayılan Renge Dön
-                    </Button>
-                  )}
+                  <div className="mt-3 flex gap-2">
+                    <Input
+                      type="text"
+                      value={qrColor || "#000000"}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value.match(/^#[0-9A-Fa-f]{0,6}$/)) {
+                          setQrColor(value.length === 7 ? value : value);
+                        }
+                      }}
+                      className="h-8 font-mono bg-zinc-800 border-zinc-700 text-zinc-100"
+                      placeholder="#000000"
+                      maxLength={7}
+                    />
+                    {qrColor && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-zinc-400 hover:text-zinc-100"
+                        onClick={() => setQrColor(null)}
+                      >
+                        Sıfırla
+                      </Button>
+                    )}
+                  </div>
                 </PopoverContent>
               </Popover>
 
